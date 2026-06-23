@@ -43,7 +43,7 @@ import {
 // Types
 type PlayerColor = "RED" | "GREEN" | "BLUE";
 type ClueColorLower = "red" | "green" | "blue";
-type CollectibleType = "network" | "box" | "equilibrium" | "clone" | "vantage" | "galaxy" | "polyomino";
+type CollectibleType = "network" | "box" | "equilibrium" | "clone" | "vantage" | "galaxy" | "polyomino" | "checkpoint";
 type CollectibleOrientation = 0 | 90 | 180 | 270;
 
 interface PlayerState {
@@ -2227,6 +2227,14 @@ export const GameScreen = ({
                     </GoldAura>
                   </group>
                 );
+              } else if (collectible.type === "checkpoint") {
+                return (
+                  <group key={collectible.id} position={pos}>
+                    <GoldAura isGold={collectible.isGold} color={collectible.color}>
+                      <EquilibriumCube color={displayColor} scale={1.0} connected={collectible.isActivated} />
+                    </GoldAura>
+                  </group>
+                )
               }
 
 

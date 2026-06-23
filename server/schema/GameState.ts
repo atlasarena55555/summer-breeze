@@ -12,7 +12,7 @@ export class Player extends Schema {
   @type("string") discordName: string = "";
 }
 
-export type CollectibleType = "network" | "box" | "equilibrium" | "clone" | "vantage" | "galaxy" | "polyomino";
+export type CollectibleType = "network" | "box" | "equilibrium" | "clone" | "vantage" | "galaxy" | "polyomino" | "checkpoint";
 
 export type CollectibleColor = PlayerColor | "NEUTRAL";
 
