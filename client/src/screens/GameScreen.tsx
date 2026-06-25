@@ -15,6 +15,7 @@ import { EquilateralTriangle } from "@/components/EquilateralTriangle";
 import { Compass } from "@/components/Compass";
 import { GalaxyModel } from "@/components/GalaxyModel";
 import { Polyomino } from "@/components/Polyomino";
+import { EquilibriumCube } from "@/components/EquilibriumCube";
 import { GoldAura } from "@/components/GoldAura";
 import { PulseRipple } from "@/components/game/PulseRipple";
 import { FloatingScore } from "@/components/FloatingScore";
