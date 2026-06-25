@@ -1,6 +1,6 @@
 import { BaseCollectible, CollectibleScoreContext, SpawnValidationContext } from "./BaseCollectible";
 
-export class NetworkCollectible extends BaseCollectible {
+export class CheckpointCollectible extends BaseCollectible {
   private readonly goldBonus = 5;
   private readonly baseScore = 1;
 
@@ -25,10 +25,10 @@ export class NetworkCollectible extends BaseCollectible {
     const isOnOuterEdge = x === mX || x === MX || y === mY || y === MY;
 
     if (isOnOuterEdge) {
-      // Only 1 network collectible of each color allowed on the outermost edge
+      // Only 1 checkpoint collectible of each color allowed on the outermost edge
       let edgeCount = 0;
       for (const collectible of existingCollectibles) {
-        if (collectible.type === "network" && collectible.color === color) {
+        if (collectible.type === "checkpoint" && collectible.color === color) {
           const isCollectibleOnOuterEdge =
             collectible.x === mX || collectible.x === MX ||
             collectible.y === mY || collectible.y === MY;
@@ -73,22 +73,22 @@ export class NetworkCollectible extends BaseCollectible {
 
     // Find all network collectibles of this color in the same component
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-    const networksInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "network") return false;
+    const checkpointsInComponent = allCollectibles.filter((c) => {
+      if (c.color !== color || c.type !== "checkpoint") return false;
       const cKey = `${c.x},${c.y}`;
       const cCell = gridColors.get(cKey);
       if (!cCell || cCell.color !== color) return false;
       return componentSet.has(cKey);
     });
 
-    let cluesInNetwork = networksInComponent.length;
-    if (cluesInNetwork < 2) return 0;
+    let cluesInCheckpoint = checkpointsInComponent.length;
+    if (cluesInCheckpoint < 2) return 0;
 
-    if (this.checkCluesAtEndpoints(myComponent, componentSet, networksInComponent)) {
-      cluesInNetwork += this.goldBonus;
+    if (this.checkCluesAtEndpoints(myComponent, componentSet, checkpointsInComponent)) {
+      cluesInCheckpoint += this.goldBonus;
     }
 
-    return (cluesInNetwork - 1) * this.baseScore;
+    return (cluesInCheckpoint - 1) * this.baseScore;
   }
 
   isActivated(context: CollectibleScoreContext): boolean {
@@ -115,8 +115,8 @@ export class NetworkCollectible extends BaseCollectible {
     }
 
     // Find all network collectibles of this color in the same component
-    const networksInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "network") return false;
+    const checkpointInComponent = allCollectibles.filter((c) => {
+      if (c.color !== color || c.type !== "checkpoint") return false;
 
       // Check if claimed
       const cKey = `${c.x},${c.y}`;
@@ -128,7 +128,7 @@ export class NetworkCollectible extends BaseCollectible {
     });
 
     // Activated if there are at least 2 networks in the component
-    return networksInComponent.length >= 2;
+    return checkpointInComponent.length >= 2;
   }
 
   isGold(context: CollectibleScoreContext): boolean {
@@ -146,23 +146,23 @@ export class NetworkCollectible extends BaseCollectible {
     if (!myComponent) return false;
 
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-    const networksInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "network") return false;
+    const checkpointInComponent = allCollectibles.filter((c) => {
+      if (c.color !== color || c.type !== "checkpoint") return false;
       const cKey = `${c.x},${c.y}`;
       const cCell = gridColors.get(cKey);
       if (!cCell || cCell.color !== color) return false;
       return componentSet.has(cKey);
     });
 
-    return this.checkCluesAtEndpoints(myComponent, componentSet, networksInComponent);
+    return this.checkCluesAtEndpoints(myComponent, componentSet, checkpointInComponent);
   }
 
   private checkCluesAtEndpoints(
     component: Array<{ x: number; y: number }>,
     componentSet: Set<string>,
-    networksInComponent: Array<{ x: number; y: number }>
+    checkpointInComponent: Array<{ x: number; y: number }>
   ): boolean {
-    const networkSet = new Set(networksInComponent.map((c) => `${c.x},${c.y}`));
+    const checkpointSet = new Set(checkpointInComponent.map((c) => `${c.x},${c.y}`));
     const directions = [
       { dx: 1, dy: 0 },
       { dx: -1, dy: 0 },
@@ -178,7 +178,7 @@ export class NetworkCollectible extends BaseCollectible {
         }
       }
       const isEndpoint = degree === 1;
-      const hasClue = networkSet.has(`${cell.x},${cell.y}`);
+      const hasClue = checkpointSet.has(`${cell.x},${cell.y}`);
 
       if (isEndpoint !== hasClue) {
         return false;
