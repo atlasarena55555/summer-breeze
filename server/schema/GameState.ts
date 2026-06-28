@@ -23,6 +23,7 @@ export class Collectible extends Schema {
   @type("number") y: number = 0;
   @type("string") color: CollectibleColor = "RED";
   @type("string") id: string = "";
+  @type("number") num: number = 0;
   @type("string") type: CollectibleType = "network";
   @type("boolean") isActivated: boolean = false;
   @type("boolean") isGold: boolean = false;

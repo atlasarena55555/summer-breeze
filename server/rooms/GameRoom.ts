@@ -1129,6 +1129,8 @@ export class GameRoom extends Room<GameState> {
             const currentCount = collectibleCounters.get(rule.clue_type)!;
             collectible.id = `${color}-${rule.clue_type}-${currentCount}`;
             collectibleCounters.set(rule.clue_type, currentCount + 1);
+            collectible.num = currentCount;
+            console.log("Collectible: " + collectible.id + " is number " + collectible.num);
             collectible.color = color;
             collectible.type = rule.clue_type;
 
