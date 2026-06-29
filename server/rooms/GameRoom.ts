@@ -1194,6 +1194,7 @@ export class GameRoom extends Room<GameState> {
       const collectible = new Collectible();
       collectible.id = `${clue.color}-${clue.type}-${this.state.collectibles.length}`;
       collectible.type = clue.type;
+      collectible.num = clue.num;
       collectible.color = clue.color;
       // Convert level spec coordinates (centered at 0,0) to grid coordinates
       // Unreal uses center at floor((size-1)/2), we use floor(size/2), so offset by 1
