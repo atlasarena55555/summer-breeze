@@ -74,7 +74,10 @@ export class CheckpointCollectible extends BaseCollectible {
     // Find all checkpoint collectibles of this color
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
     const checkpointsInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "checkpoint") return false;
+      if (c.color !== color || c.type !== "checkpoint") 
+        return false;
+      else 
+        return true;
     });
 
     if (checkpointsInComponent.some((c) => {
@@ -178,6 +181,8 @@ export class CheckpointCollectible extends BaseCollectible {
     // filter by players checkpoints in component
     const checkpointsInComponent = allCollectibles.filter((c) => {
       if (c.color !== color || c.type !== "checkpoint") return false;
+      else
+        return true;
     });
 
     // are all players checkpoints ... 

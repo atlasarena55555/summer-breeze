@@ -10,7 +10,7 @@ import { PolyominoCollectible } from "./PolyominoCollectible";
 import { CheckpointCollectible } from "./CheckpointCollectible";
 
 export class CollectibleFactory {
-  private static handlers: Map<CollectibleType, BaseCollectible> = new Map([
+  private static handlers: Map<CollectibleType, BaseCollectible> = new Map<CollectibleType, BaseCollectible>([
     ["network", new NetworkCollectible()],
     ["box", new BoxCollectible()],
     ["equilibrium", new EquilibriumCollectible()],
