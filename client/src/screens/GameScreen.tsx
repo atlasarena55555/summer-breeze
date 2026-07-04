@@ -2156,7 +2156,7 @@ export const GameScreen = ({
             <ConnectionLines key={`lines-${gridWidth}-${gridHeight}`} nodeStates={nodeStates} gridWidth={gridWidth} gridHeight={gridHeight} />
 
             {/* Collectibles */}
-            // EDIT COLLECTIBLE SHAPES HERE!!!!!!
+            {/* EDIT COLLECTIBLE SHAPES HERE!!!!!! */}
             {collectibles.map((collectible) => {
               const pos = getVisualPos(collectible.x, collectible.y, -2.0);
               const displayColor = getDisplayColor(collectible.color);

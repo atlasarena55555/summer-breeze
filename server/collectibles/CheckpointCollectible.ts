@@ -1,4 +1,8 @@
-import { BaseCollectible, CollectibleScoreContext, SpawnValidationContext } from "./BaseCollectible";
+import {
+  BaseCollectible,
+  CollectibleScoreContext,
+  SpawnValidationContext,
+} from "./BaseCollectible";
 
 export class CheckpointCollectible extends BaseCollectible {
   private readonly goldBonus = 5;
@@ -9,7 +13,18 @@ export class CheckpointCollectible extends BaseCollectible {
   }
 
   isValidSpawnPosition(context: SpawnValidationContext): boolean {
-    const { x, y, minBound, maxBound, color, existingCollectibles, gridMinX, gridMaxX, gridMinY, gridMaxY } = context;
+    const {
+      x,
+      y,
+      minBound,
+      maxBound,
+      color,
+      existingCollectibles,
+      gridMinX,
+      gridMaxX,
+      gridMinY,
+      gridMaxY,
+    } = context;
 
     // Check if position is within bounds
     if (x < minBound || x > maxBound || y < minBound || y > maxBound) {
@@ -30,8 +45,10 @@ export class CheckpointCollectible extends BaseCollectible {
       for (const collectible of existingCollectibles) {
         if (collectible.type === "checkpoint" && collectible.color === color) {
           const isCollectibleOnOuterEdge =
-            collectible.x === mX || collectible.x === MX ||
-            collectible.y === mY || collectible.y === MY;
+            collectible.x === mX ||
+            collectible.x === MX ||
+            collectible.y === mY ||
+            collectible.y === MY;
           if (isCollectibleOnOuterEdge) {
             edgeCount++;
           }
@@ -47,7 +64,8 @@ export class CheckpointCollectible extends BaseCollectible {
   }
 
   calculateScore(context: CollectibleScoreContext): number {
-    const { collectible, gridColors, allCollectibles, color, components } = context;
+    const { collectible, gridColors, allCollectibles, color, components } =
+      context;
 
     // Find which component this collectible belongs to (if any)
     let myComponent: Array<{ x: number; y: number }> | null = null;
@@ -61,7 +79,9 @@ export class CheckpointCollectible extends BaseCollectible {
 
     // Find the component this collectible is in
     for (const component of components) {
-      if (component.some((c) => c.x === collectible.x && c.y === collectible.y)) {
+      if (
+        component.some((c) => c.x === collectible.x && c.y === collectible.y)
+      ) {
         myComponent = component;
         break;
       }
@@ -73,49 +93,52 @@ export class CheckpointCollectible extends BaseCollectible {
 
     // Find all checkpoint collectibles of this color
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-    const checkpointsInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "checkpoint") 
-        return false;
-      else 
-        return true;
+    const playersCheckpoints = allCollectibles.filter((c) => {
+      if (c.color !== color || c.type !== "checkpoint") return false;
+      else return true;
     });
 
-    if (checkpointsInComponent.some((c) => {
-      // Check if claimed
-      const cKey = `${c.x},${c.y}`;
-      const cCell = gridColors.get(cKey);
-      if (!cCell || cCell.color !== color) return false;
+    // Search for previous number in components (unless first)
+    const inOrder =
+      collectible.num == 0 ||
+      playersCheckpoints.some((c) => {
+        // Check if claimed
+        const cKey = `${c.x},${c.y}`;
+        const cCell = gridColors.get(cKey);
+        if (!cCell || cCell.color !== color) return false;
 
-      // check if in component
-      if (myComponent!.some((comp) => comp.x === c.x && comp.y === c.y)) return false;
+        // check if in component
+        if (!componentSet.has(`${c.x},${c.y}`)) return false;
 
-      // check if is previous number
-      return c.num == (collectible.num-1);
-    })) return 0; // not connected to prev number
+        // check if is previous number
+        return c.num == collectible.num - 1;
+      });
 
-    let cluesInCheckpoint = checkpointsInComponent.length;
-
-    if (checkpointsInComponent.every((c) => {
+    const goGold = playersCheckpoints.every((c) => {
       // claimed?
       const cKey = `${c.x},${c.y}`;
       const cCell = gridColors.get(cKey);
       if (!cCell || cCell.color !== color) return false;
 
       // in component?
-      if (myComponent!.some((comp) => comp.x === c.x && comp.y === c.y)) return false;
+      if (!componentSet.has(`${c.x},${c.y}`)) return false;
 
       // activated? (connected to previous)
       return c.isActivated;
-    })) {
-      cluesInCheckpoint += this.goldBonus; 
-    } // gold bonus if all activated
+    });
 
-    return (cluesInCheckpoint - 1) * this.baseScore;
+    if (inOrder && goGold) {
+      return this.baseScore + this.goldBonus;
+    } else if (inOrder) {
+      return this.baseScore;
+    } else {
+      return 0;
+    }
   }
 
-
   isActivated(context: CollectibleScoreContext): boolean {
-    const { collectible, gridColors, allCollectibles, color, components } = context;
+    const { collectible, gridColors, allCollectibles, color, components } =
+      context;
 
     // Check if the collectible position has a painted tile of this color
     // ie. is claimed?
@@ -125,52 +148,59 @@ export class CheckpointCollectible extends BaseCollectible {
       return false;
     }
 
-    // Find the component this collectible is in
-    // ie. what connected to?
-    let myComponent: Array<{ x: number; y: number }> | null = null;
-    for (const component of components) {
-      if (component.some((c) => c.x === collectible.x && c.y === collectible.y)) {
-        myComponent = component;
-        break;
+    if (collectible.num == 0) {
+      return true;
+    } 
+    
+      // Find the component this collectible is in
+      // ie. what connected to?
+      let myComponent: Array<{ x: number; y: number }> | null = null;
+      for (const component of components) {
+        if (
+          component.some((c) => c.x === collectible.x && c.y === collectible.y)
+        ) {
+          myComponent = component;
+          break;
+        }
       }
-    }
 
-    if (!myComponent) {
-      return false;
-    }
+      if (!myComponent) {
+        return false;
+      }
 
-    // CHANGE
-    // activate if connected to previous number
+      const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
 
-    // Filter collectibles of this color in the same component
-    const checkpointInComponent = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "checkpoint") return false;
+      // activate if connected to previous number
 
-      // Check if claimed
-      const cKey = `${c.x},${c.y}`;
-      const cCell = gridColors.get(cKey);
-      if (!cCell || cCell.color !== color) return false;
+      return allCollectibles.some((c) => {
+        if (c.color !== color || c.type !== "checkpoint") return false;
 
-      // check if in component
-      if (myComponent!.some((comp) => comp.x === c.x && comp.y === c.y)) return false;
+        // Check if claimed
+        const cKey = `${c.x},${c.y}`;
+        const cCell = gridColors.get(cKey);
+        if (!cCell || cCell.color !== color) return false;
 
-      // check if is previous number
-      return c.num == (collectible.num-1);
-    });
+        // check if in component
+        if (!componentSet.has(`${c.x},${c.y}`))
+          return false;
 
-    // Activated if prev checkpoint found
-    return checkpointInComponent.length == 1;
+        // check if is previous number
+        return c.num == collectible.num - 1;
+      }) 
   }
 
   // to be gold
   isGold(context: CollectibleScoreContext): boolean {
     if (!this.isActivated(context)) return false; // activated?
 
-    const { collectible, gridColors, allCollectibles, color, components } = context;
+    const { collectible, gridColors, allCollectibles, color, components } =
+      context;
 
     let myComponent: Array<{ x: number; y: number }> | null = null;
     for (const component of components) {
-      if (component.some((c) => c.x === collectible.x && c.y === collectible.y)) {
+      if (
+        component.some((c) => c.x === collectible.x && c.y === collectible.y)
+      ) {
         myComponent = component;
         break;
       }
@@ -178,26 +208,26 @@ export class CheckpointCollectible extends BaseCollectible {
     if (!myComponent) return false; // in component?
 
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
+    
     // filter by players checkpoints in component
-    const checkpointsInComponent = allCollectibles.filter((c) => {
+    const playersCheckpoints = allCollectibles.filter((c) => {
       if (c.color !== color || c.type !== "checkpoint") return false;
-      else
-        return true;
+      else return true;
     });
 
-    // are all players checkpoints ... 
-    return checkpointsInComponent.every((c) => {
+    // are all players checkpoints ...
+    return playersCheckpoints.every((c) => {
       // claimed?
       const cKey = `${c.x},${c.y}`;
       const cCell = gridColors.get(cKey);
       if (!cCell || cCell.color !== color) return false;
 
       // in component?
-      if (myComponent!.some((comp) => comp.x === c.x && comp.y === c.y)) return false;
+      if (!componentSet.has(`${c.x},${c.y}`))
+        return false;
 
       // activated? (connected to previous)
       return c.isActivated;
-    }
-    );
+    });
   }
 }
