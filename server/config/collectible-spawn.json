@@ -1,7 +1,7 @@
 {
   "seed": 40,
   "custom_target_scores": [
-    50, 130, 290, 520, 860, 1090, 1550
+    20, 50, 92, 148, 220, 310, 420
   ],
   "collectible_spawn_rules": [
     {
