@@ -299,7 +299,11 @@ export class GameRoom extends Room<GameState> {
           cell = new GridCell();
           this.state.gridColors.set(cellKey, cell);
         }
-        if (cell.color !== player.color && !this.hasOtherColorCollectibleAt(newX, newY, player.color)) {
+        if (
+          cell.color !== player.color &&
+          !this.hasOtherColorCollectibleAt(newX, newY, player.color) &&
+          !this.hasUnactivatedCheckpointAt(newX, newY, player.color)
+        ) {
           this.movementScores[player.color] += 0.25;
         }
         cell.color = player.color;
@@ -1253,6 +1257,22 @@ export class GameRoom extends Room<GameState> {
   private hasOtherColorCollectibleAt(x: number, y: number, playerColor: PlayerColor): boolean {
     for (const collectible of this.state.collectibles) {
       if (collectible.x === x && collectible.y === y && collectible.color !== playerColor) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  private hasUnactivatedCheckpointAt(x: number, y: number, playerColor: PlayerColor): boolean {
+    for (const collectible of this.state.collectibles) {
+      if (
+        collectible.x === x &&
+        collectible.y === y &&
+        collectible.color === playerColor &&
+        collectible.type === "checkpoint" &&
+        !collectible.isActivated
+      ) {
         return true;
       }
     }
