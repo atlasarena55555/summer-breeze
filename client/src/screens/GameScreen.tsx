@@ -2246,7 +2246,7 @@ export const GameScreen = ({
                 );
               } else if (collectible.type === "checkpoint") {
                   console.log("collectible: " + collectible.num);
-                  if (collectible.num == 1) { //shape for first
+                  if (collectible.num == 0) { //shape for first
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
@@ -2255,7 +2255,7 @@ export const GameScreen = ({
                       </group>
                     )
                   }
-                  else if (collectible.num == 2) { //shape for second
+                  else if (collectible.num == 1) { //shape for second
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
@@ -2264,7 +2264,7 @@ export const GameScreen = ({
                       </group>
                     )
                   }
-                  else if (collectible.num == 3) { //shape for third
+                  else if (collectible.num == 2) { //shape for third
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
@@ -2273,7 +2273,7 @@ export const GameScreen = ({
                       </group>
                     )
                   }
-                  else if (collectible.num == 4) { //shape for fourth
+                  else if (collectible.num == 3) { //shape for fourth
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
