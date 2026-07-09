@@ -253,6 +253,7 @@ const lineVertexShader = `
   }
 `;
 
+/*IGNORE THIS COMMENTED CODE
 const lineFragmentShader = `
   uniform float uTime;
   uniform float uRepeats;
@@ -266,7 +267,15 @@ const lineFragmentShader = `
     if (dash < 0.5) discard;
     gl_FragColor = vec4(vColor * 0.4, 1.0);
   }
-`;
+`;*/
+//laras test code
+const lineFragmentShader = `
+  varying vec3 vColor;
+
+  void main() {
+    gl_FragColor = vec4(vColor, 1.0);
+  }
+`;//end test
 
 const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (string | null)[][], gridWidth: number, gridHeight: number }) => {
   const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -306,10 +315,11 @@ const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (s
 
   const colorArray = useMemo(() => new Float32Array(maxCount * 3), [maxCount]);
 
+  /*//IGNORE THIS COMMENTED CODE
   const uniforms = useMemo(() => ({
     uTime: { value: 0 },
     uRepeats: { value: SPACING * 4.0 },
-  }), []);
+  }), []);*/
 
   useEffect(() => {
     const mesh = meshRef.current;
@@ -320,7 +330,8 @@ const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (s
 
     for (let i = 0; i < lines.length; i++) {
       const l = lines[i];
-      dummy.position.set(l.px, -2.5, l.pz);
+      //dummy.position.set(l.px, -2.5, l.pz); //ignore this line
+      dummy.position.set(l.px, -2.6, l.pz);
       dummy.quaternion.copy(l.horizontal ? quatHorizontal : quatVertical);
       dummy.scale.set(1, 1, 1);
       dummy.updateMatrix();
@@ -339,21 +350,25 @@ const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (s
     if (colorAttr) colorAttr.needsUpdate = true;
   }, [lines, colorArray]);
 
+  /* //IGNORE COMMENTED CODE
   useFrame((state) => {
     uniforms.uTime.value = state.clock.elapsedTime;
-  });
-
+  });*/
+    //IGNORE THIS LINE: <cylinderGeometry args={[0.04, 0.04, SPACING, 6]}>
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, maxCount]}>
-      <cylinderGeometry args={[0.04, 0.04, SPACING, 6]}>
+      <cylinderGeometry args={[0.18, 0.18, SPACING, 16]}>   
         <instancedBufferAttribute attach="attributes-instanceColor" args={[colorArray, 3]} />
       </cylinderGeometry>
       <shaderMaterial
         vertexShader={lineVertexShader}
         fragmentShader={lineFragmentShader}
-        uniforms={uniforms}
+        //IGNORE THIS LINE uniforms={uniforms}
         vertexColors={true}
-        transparent={true}
+        //IGNORE THIS LINE transparent={true}
+        transparent={false}
+        depthWrite={true}
+        depthTest={true}
         side={THREE.DoubleSide}
       />
     </instancedMesh>
