@@ -1727,6 +1727,10 @@ export class GameRoom extends Room<GameState> {
     // Clear all grid colors (set to neutral by removing them)
     this.state.gridColors.clear();
 
+    if (reason === "vote") {
+      this.resetMovementScores();
+    }
+
     // Reset votes
     this.clearBoardVotes.clear();
 
@@ -1739,6 +1743,12 @@ export class GameRoom extends Room<GameState> {
 
     // Log clear board for replay
     this.logEvent({ e: "clear_board" });
+  }
+
+  private resetMovementScores() {
+    this.movementScores.RED = 0;
+    this.movementScores.GREEN = 0;
+    this.movementScores.BLUE = 0;
   }
 
   private startAbandonGameVoteTimer() {
