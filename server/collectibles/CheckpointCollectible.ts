@@ -8,6 +8,60 @@ export class CheckpointCollectible extends BaseCollectible {
   private readonly goldBonus = 5;
   private readonly baseScore = 1;
 
+  /**
+   * Checkpoints are event-driven: painting a future checkpoint does not claim
+   * it retroactively after an earlier checkpoint is collected. A checkpoint
+   * can only advance the sequence by exactly one, starting at zero.
+   */
+  onClaim(context: CollectibleScoreContext): void {
+    const { collectible, gridColors, allCollectibles, color, components } =
+      context;
+
+    if (collectible.isActivated) return;
+
+    const checkpoints = allCollectibles.filter(
+      (candidate) =>
+        candidate.type === "checkpoint" && candidate.color === color
+    );
+    const highestClaimedNumber = checkpoints.reduce(
+      (highest, candidate) =>
+        candidate.isActivated ? Math.max(highest, candidate.num) : highest,
+      -1
+    );
+
+    // Reject skipped checkpoints and attempts to go back to an old number.
+    if (collectible.num !== highestClaimedNumber + 1) return;
+
+    const cell = gridColors.get(`${collectible.x},${collectible.y}`);
+    if (!cell || cell.color !== color) return;
+
+    const component = components.find((candidate) =>
+      candidate.some(
+        (cell) => cell.x === collectible.x && cell.y === collectible.y
+      )
+    );
+    if (!component) return;
+
+    if (collectible.num === 0) {
+      collectible.isActivated = true;
+      return;
+    }
+
+    const componentCells = new Set(
+      component.map((cell) => `${cell.x},${cell.y}`)
+    );
+    const previousCheckpointIsConnected = checkpoints.some(
+      (candidate) =>
+        candidate.num === collectible.num - 1 &&
+        candidate.isActivated &&
+        componentCells.has(`${candidate.x},${candidate.y}`)
+    );
+
+    if (previousCheckpointIsConnected) {
+      collectible.isActivated = true;
+    }
+  }
+
   protected getSpawnEdgeConstraints(): { minEdge: number; maxEdge: number } {
     return { minEdge: 1, maxEdge: 4 };
   }
@@ -91,28 +145,14 @@ export class CheckpointCollectible extends BaseCollectible {
       return 0; // Not in any component
     }
 
+    if (!collectible.isActivated) return 0;
+
     // Find all checkpoint collectibles of this color
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-    const playersCheckpoints = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "checkpoint") return false;
-      else return true;
-    });
-
-    // Search for previous number in components (unless first)
-    const inOrder =
-      collectible.num == 0 ||
-      playersCheckpoints.some((c) => {
-        // Check if claimed
-        const cKey = `${c.x},${c.y}`;
-        const cCell = gridColors.get(cKey);
-        if (!cCell || cCell.color !== color) return false;
-
-        // check if in component
-        if (!componentSet.has(`${c.x},${c.y}`)) return false;
-
-        // check if is previous number
-        return c.num == collectible.num - 1;
-      });
+    const playersCheckpoints = allCollectibles.filter(
+      (candidate) =>
+        candidate.color === color && candidate.type === "checkpoint"
+    );
 
     const goGold = playersCheckpoints.every((c) => {
       // claimed?
@@ -127,71 +167,18 @@ export class CheckpointCollectible extends BaseCollectible {
       return c.isActivated;
     });
 
-    if (inOrder && goGold) {
-      return this.baseScore + this.goldBonus;
-    } else if (inOrder) {
-      return this.baseScore;
-    } else {
-      return 0;
-    }
+    return this.baseScore + (goGold ? this.goldBonus : 0);
   }
 
   isActivated(context: CollectibleScoreContext): boolean {
-    const { collectible, gridColors, allCollectibles, color, components } =
-      context;
-
-    // Check if the collectible position has a painted tile of this color
-    // ie. is claimed?
-    const cellKey = `${collectible.x},${collectible.y}`;
-    const cell = gridColors.get(cellKey);
-    if (!cell || cell.color !== color) {
-      return false;
-    }
-
-    if (collectible.num == 0) {
-      return true;
-    } 
-    
-      // Find the component this collectible is in
-      // ie. what connected to?
-      let myComponent: Array<{ x: number; y: number }> | null = null;
-      for (const component of components) {
-        if (
-          component.some((c) => c.x === collectible.x && c.y === collectible.y)
-        ) {
-          myComponent = component;
-          break;
-        }
-      }
-
-      if (!myComponent) {
-        return false;
-      }
-
-      const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-
-      // activate if connected to previous number
-
-      return allCollectibles.some((c) => {
-        if (c.color !== color || c.type !== "checkpoint") return false;
-
-        // Check if claimed
-        const cKey = `${c.x},${c.y}`;
-        const cCell = gridColors.get(cKey);
-        if (!cCell || cCell.color !== color) return false;
-
-        // check if in component
-        if (!componentSet.has(`${c.x},${c.y}`))
-          return false;
-
-        // check if is previous number
-        return c.num == collectible.num - 1;
-      }) 
+    // Claim state is persistent between score recalculations. It is updated
+    // only by onClaim and explicitly reset when the board is cleared.
+    return context.collectible.isActivated;
   }
 
   // to be gold
   isGold(context: CollectibleScoreContext): boolean {
-    if (!this.isActivated(context)) return false; // activated?
+    if (!context.collectible.isActivated) return false;
 
     const { collectible, gridColors, allCollectibles, color, components } =
       context;
@@ -208,12 +195,12 @@ export class CheckpointCollectible extends BaseCollectible {
     if (!myComponent) return false; // in component?
 
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
-    
+
     // filter by players checkpoints in component
-    const playersCheckpoints = allCollectibles.filter((c) => {
-      if (c.color !== color || c.type !== "checkpoint") return false;
-      else return true;
-    });
+    const playersCheckpoints = allCollectibles.filter(
+      (candidate) =>
+        candidate.color === color && candidate.type === "checkpoint"
+    );
 
     // are all players checkpoints ...
     return playersCheckpoints.every((c) => {
@@ -223,8 +210,7 @@ export class CheckpointCollectible extends BaseCollectible {
       if (!cCell || cCell.color !== color) return false;
 
       // in component?
-      if (!componentSet.has(`${c.x},${c.y}`))
-        return false;
+      if (!componentSet.has(`${c.x},${c.y}`)) return false;
 
       // activated? (connected to previous)
       return c.isActivated;
