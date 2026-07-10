@@ -36,6 +36,12 @@ export abstract class BaseCollectible {
   abstract isActivated(context: CollectibleScoreContext): boolean;
 
   /**
+   * Handle an explicit claim event. Most collectible types are derived from the
+   * board state and do not need claim history, so this is a no-op by default.
+   */
+  onClaim(_context: CollectibleScoreContext): void {}
+
+  /**
    * Determine if this collectible achieves gold status (bonus condition)
    * @returns true if the collectible meets its gold condition
    */

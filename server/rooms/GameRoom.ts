@@ -42,7 +42,7 @@ interface PingMessage {
 interface DevPaintNodeMessage {
   x: number;
   y: number;
-  color: string;
+  color: PlayerColor;
 }
 
 interface ClearBoardVote {
@@ -308,6 +308,9 @@ export class GameRoom extends Room<GameState> {
         }
         cell.color = player.color;
 
+        // Claim a checkpoint only when the player actually enters its cell.
+        this.claimCheckpoint(newX, newY, player.color);
+
         // Recalculate scores
         this.calculateScores();
 
@@ -370,6 +373,9 @@ export class GameRoom extends Room<GameState> {
 
       // Set the color
       cell.color = color as any;
+
+      // Dev painting should exercise the same checkpoint rules as movement.
+      this.claimCheckpoint(x, y, color);
 
       // Recalculate scores
       this.calculateScores();
@@ -1142,10 +1148,11 @@ export class GameRoom extends Room<GameState> {
             const currentCount = collectibleCounters.get(rule.clue_type)!;
             collectible.id = `${color}-${rule.clue_type}-${currentCount}`;
             collectibleCounters.set(rule.clue_type, currentCount + 1);
-            collectible.num = i;
-            console.log("Collectible: " + collectible.id + " is number " + collectible.num);
             collectible.color = color;
             collectible.type = rule.clue_type;
+            if (collectible.type === "checkpoint") {
+              collectible.num = this.getNextCheckpointNumber(color);
+            }
 
             const handler = CollectibleFactory.getHandler(rule.clue_type);
             let x: number, y: number;
@@ -1280,6 +1287,40 @@ export class GameRoom extends Room<GameState> {
     return false;
   }
 
+  private claimCheckpoint(x: number, y: number, playerColor: PlayerColor) {
+    const allCollectiblesList = Array.from(this.state.collectibles);
+
+    const currentCollectible = allCollectiblesList.find(
+      (collectible) =>
+        collectible.type === "checkpoint" &&
+        collectible.x === x &&
+        collectible.y === y &&
+        collectible.color === playerColor
+    );
+
+    if (!currentCollectible || currentCollectible.isActivated) return;
+
+    const components = this.findConnectedComponents(playerColor);
+    const handler = CollectibleFactory.getHandler(currentCollectible.type);
+    handler.onClaim({
+      collectible: currentCollectible,
+      gridColors: this.state.gridColors,
+      allCollectibles: allCollectiblesList,
+      color: playerColor,
+      components,
+    });
+  }
+
+  private getNextCheckpointNumber(color: PlayerColor): number {
+    let highestNumber = -1;
+    for (const collectible of this.state.collectibles) {
+      if (collectible.type === "checkpoint" && collectible.color === color) {
+        highestNumber = Math.max(highestNumber, collectible.num);
+      }
+    }
+    return highestNumber + 1;
+  }
+
   private calculateScores() {
     const scores: Record<PlayerColor, number> = {
       RED: 0,
@@ -1296,7 +1337,7 @@ export class GameRoom extends Room<GameState> {
     /* Only clear activation when needed — writing every collectible every move
        explodes Colyseus patch size and freezes clients on large clue counts. */
     for (const collectible of this.state.collectibles) {
-      if (collectible.isActivated) {
+      if (collectible.type !== "checkpoint" && collectible.isActivated) {
         collectible.isActivated = false;
       }
     }
@@ -1661,6 +1702,9 @@ export class GameRoom extends Room<GameState> {
                 collectible.id = `${color}-${rule.clue_type}-${this.state.collectibles.length}`;
                 collectible.color = color;
                 collectible.type = rule.clue_type;
+                if (collectible.type === "checkpoint") {
+                  collectible.num = this.getNextCheckpointNumber(color);
+                }
 
                 const handler = CollectibleFactory.getHandler(rule.clue_type);
                 let x: number, y: number;
@@ -1749,6 +1793,13 @@ export class GameRoom extends Room<GameState> {
 
     if (reason === "vote") {
       this.resetMovementScores();
+    }
+
+    // A cleared board starts a fresh checkpoint sequence.
+    for (const collectible of this.state.collectibles) {
+      if (collectible.type === "checkpoint" && collectible.isActivated) {
+        collectible.isActivated = false;
+      }
     }
 
     // Reset votes
