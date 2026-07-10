@@ -299,7 +299,11 @@ export class GameRoom extends Room<GameState> {
           cell = new GridCell();
           this.state.gridColors.set(cellKey, cell);
         }
-        if (cell.color !== player.color && !this.hasOtherColorCollectibleAt(newX, newY, player.color)) {
+        if (
+          cell.color !== player.color &&
+          !this.hasOtherColorCollectibleAt(newX, newY, player.color) &&
+          !this.hasUnactivatedCheckpointAt(newX, newY, player.color)
+        ) {
           this.movementScores[player.color] += 0.25;
         }
         cell.color = player.color;
@@ -1267,6 +1271,22 @@ export class GameRoom extends Room<GameState> {
     return false;
   }
 
+  private hasUnactivatedCheckpointAt(x: number, y: number, playerColor: PlayerColor): boolean {
+    for (const collectible of this.state.collectibles) {
+      if (
+        collectible.x === x &&
+        collectible.y === y &&
+        collectible.color === playerColor &&
+        collectible.type === "checkpoint" &&
+        !collectible.isActivated
+      ) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
   private claimCheckpoint(x: number, y: number, playerColor: PlayerColor) {
     const allCollectiblesList = Array.from(this.state.collectibles);
 
@@ -1771,6 +1791,10 @@ export class GameRoom extends Room<GameState> {
     // Clear all grid colors (set to neutral by removing them)
     this.state.gridColors.clear();
 
+    if (reason === "vote") {
+      this.resetMovementScores();
+    }
+
     // A cleared board starts a fresh checkpoint sequence.
     for (const collectible of this.state.collectibles) {
       if (collectible.type === "checkpoint" && collectible.isActivated) {
@@ -1790,6 +1814,12 @@ export class GameRoom extends Room<GameState> {
 
     // Log clear board for replay
     this.logEvent({ e: "clear_board" });
+  }
+
+  private resetMovementScores() {
+    this.movementScores.RED = 0;
+    this.movementScores.GREEN = 0;
+    this.movementScores.BLUE = 0;
   }
 
   private startAbandonGameVoteTimer() {
