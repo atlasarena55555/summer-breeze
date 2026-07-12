@@ -145,7 +145,7 @@ export class CheckpointCollectible extends BaseCollectible {
       return 0; // Not in any component
     }
 
-    if (!collectible.isActivated) return 0;
+    if (!this.isActivated(context)) return 0;
 
     // Find all checkpoint collectibles of this color
     const componentSet = new Set(myComponent.map((c) => `${c.x},${c.y}`));
@@ -171,9 +171,48 @@ export class CheckpointCollectible extends BaseCollectible {
   }
 
   isActivated(context: CollectibleScoreContext): boolean {
-    // Claim state is persistent between score recalculations. It is updated
-    // only by onClaim and explicitly reset when the board is cleared.
-    return context.collectible.isActivated;
+    const { collectible, gridColors, allCollectibles, color, components } =
+      context;
+
+    // An unclaimed or previously deactivated checkpoint cannot reactivate
+    // without another claim attempt (which requires clearing the board first).
+    if (!collectible.isActivated) return false;
+
+    const component = components.find((candidate) =>
+      candidate.some(
+        (cell) => cell.x === collectible.x && cell.y === collectible.y
+      )
+    );
+    if (!component) return false;
+
+    const componentCells = new Set(
+      component.map((cell) => `${cell.x},${cell.y}`)
+    );
+    const checkpoints = allCollectibles.filter(
+      (candidate) =>
+        candidate.type === "checkpoint" && candidate.color === color
+    );
+
+    // Every checkpoint from zero through this one must still be painted in the
+    // player's colour and belong to the same connected component.
+    for (let checkpointNumber = 0; checkpointNumber <= collectible.num; checkpointNumber++) {
+      const checkpoint = checkpoints.find(
+        (candidate) => candidate.num === checkpointNumber
+      );
+      if (!checkpoint) return false;
+
+      const checkpointKey = `${checkpoint.x},${checkpoint.y}`;
+      const checkpointCell = gridColors.get(checkpointKey);
+      if (
+        !checkpointCell ||
+        checkpointCell.color !== color ||
+        !componentCells.has(checkpointKey)
+      ) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   // to be gold
