@@ -92,6 +92,7 @@ export class GameRoom extends Room<GameState> {
   private pendingMilestoneRequests: Promise<void>[] = [];
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
   private isAdvancingStage = false;
+  private attemptedCheckpointIds = new Set<string>();
   private movementScores: Record<PlayerColor, number> = {
     RED: 0,
     GREEN: 0,
@@ -1298,7 +1299,17 @@ export class GameRoom extends Room<GameState> {
         collectible.color === playerColor
     );
 
-    if (!currentCollectible || currentCollectible.isActivated) return;
+    if (
+      !currentCollectible ||
+      currentCollectible.isActivated ||
+      this.attemptedCheckpointIds.has(currentCollectible.id)
+    ) {
+      return;
+    }
+
+    // Entering an own-colour checkpoint is a one-shot attempt. If it is out of
+    // order now, the player must clear the board before trying it again.
+    this.attemptedCheckpointIds.add(currentCollectible.id);
 
     const components = this.findConnectedComponents(playerColor);
     const handler = CollectibleFactory.getHandler(currentCollectible.type);
@@ -1796,6 +1807,7 @@ export class GameRoom extends Room<GameState> {
     }
 
     // A cleared board starts a fresh checkpoint sequence.
+    this.attemptedCheckpointIds.clear();
     for (const collectible of this.state.collectibles) {
       if (collectible.type === "checkpoint" && collectible.isActivated) {
         collectible.isActivated = false;
