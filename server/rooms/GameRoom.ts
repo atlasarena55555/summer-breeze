@@ -80,6 +80,8 @@ export class GameRoom extends Room<GameState> {
   private enemyTimer: ReturnType<typeof setInterval> | null = null;
   private readonly ENEMY_MOVE_DELAY = 2000; // 2 seconds
   private levelSpec: LevelSpec | null = null;
+  private readonly MAX_CHECKPOINTS_PER_PLAYER = 12;
+  private readonly CHECKPOINT_COMPLETION_SCORE = 6;
   private lobbyTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly LOBBY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
   private abandonTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -92,7 +94,6 @@ export class GameRoom extends Room<GameState> {
   private pendingMilestoneRequests: Promise<void>[] = [];
   private countdownTimer: ReturnType<typeof setInterval> | null = null;
   private isAdvancingStage = false;
-  private attemptedCheckpointIds = new Set<string>();
   private movementScores: Record<PlayerColor, number> = {
     RED: 0,
     GREEN: 0,
@@ -206,7 +207,7 @@ export class GameRoom extends Room<GameState> {
     this.enemyRng = new SeededRNG(seed ^ 0x45_4E_45_4D); // separate stream for enemy logic
     console.log("RNG initialized with seed:", seed);
 
-    this.stageThresholds = this.collectibleSpawnConfig.custom_target_scores || [];
+    this.stageThresholds = this.getStageTargetScores();
     console.log("Loaded collectible spawn config:", this.collectibleSpawnConfig);
     console.log("Stage thresholds:", this.stageThresholds);
 
@@ -1301,15 +1302,10 @@ export class GameRoom extends Room<GameState> {
 
     if (
       !currentCollectible ||
-      currentCollectible.isActivated ||
-      this.attemptedCheckpointIds.has(currentCollectible.id)
+      currentCollectible.isActivated
     ) {
       return;
     }
-
-    // Entering an own-colour checkpoint is a one-shot attempt. If it is out of
-    // order now, the player must clear the board before trying it again.
-    this.attemptedCheckpointIds.add(currentCollectible.id);
 
     const components = this.findConnectedComponents(playerColor);
     const handler = CollectibleFactory.getHandler(currentCollectible.type);
@@ -1330,6 +1326,16 @@ export class GameRoom extends Room<GameState> {
       }
     }
     return highestNumber + 1;
+  }
+
+  private getCheckpointCount(color: PlayerColor): number {
+    let count = 0;
+    for (const collectible of this.state.collectibles) {
+      if (collectible.type === "checkpoint" && collectible.color === color) {
+        count++;
+      }
+    }
+    return count;
   }
 
   private calculateScores() {
@@ -1531,39 +1537,28 @@ export class GameRoom extends Room<GameState> {
 
   private checkStageAdvancement() {
     if (this.isAdvancingStage) return;
-    if (!this.isVisibleBoardFilled()) return;
+    if (this.state.stage >= this.getMaxStage()) return;
+    if (!this.areAllCheckpointsComplete()) return;
 
-    const nextStageFromBoardFill = this.getNextStageFromBoardFill();
-    if (nextStageFromBoardFill > this.state.stage) {
-      console.log(`Visible board filled; advancing from stage ${this.state.stage} to stage ${nextStageFromBoardFill}`);
-      this.advanceToStage(nextStageFromBoardFill);
-      return;
-    }
+    const nextStage = this.state.stage + 1;
+    console.log(`All checkpoints completed; advancing from stage ${this.state.stage} to stage ${nextStage}`);
+    this.advanceToStage(nextStage);
+  }
 
-    // In dev mode, score-based stage ups are manual only
-    if (this.isDevMode) return;
+  private areAllCheckpointsComplete(): boolean {
+    for (const color of this.playerColors) {
+      const checkpoints = Array.from(this.state.collectibles).filter(
+        (collectible) =>
+          collectible.type === "checkpoint" && collectible.color === color
+      );
 
-    // Determine what stage we should be at based on total score
-    let targetStage = 1;
-    for (let i = 0; i < this.stageThresholds.length; i++) {
-      if (this.state.totalScore >= this.stageThresholds[i]) {
-        targetStage = i + 2; // Stage 2 at threshold[0], Stage 3 at threshold[1], etc.
+      if (checkpoints.length === 0) return false;
+      if (checkpoints.some((checkpoint) => !checkpoint.isActivated)) {
+        return false;
       }
     }
 
-    // If we need to advance stages
-    if (targetStage > this.state.stage) {
-      console.log(`Advancing from stage ${this.state.stage} to stage ${targetStage}`);
-      this.advanceToStage(targetStage);
-    }
-  }
-
-  private getNextStageFromBoardFill(): number {
-    const maxStage = this.getMaxStage();
-    if (this.state.stage >= maxStage) return this.state.stage;
-    if (!this.isVisibleBoardFilled()) return this.state.stage;
-
-    return Math.min(this.state.stage + 1, maxStage);
+    return true;
   }
 
   private getMaxStage(): number {
@@ -1574,24 +1569,38 @@ export class GameRoom extends Room<GameState> {
     return 8;
   }
 
-  private isVisibleBoardFilled(): boolean {
-    const center = Math.floor(this.MAX_GRID_SIZE / 2);
-    const halfWidth = Math.floor(this.state.gridWidth / 2);
-    const halfHeight = Math.floor(this.state.gridHeight / 2);
-    const minX = center - halfWidth;
-    const maxX = center + halfWidth - 1;
-    const minY = center - halfHeight;
-    const maxY = center + halfHeight - 1;
+  private getStageTargetScores(): number[] {
+    const configuredScores = this.collectibleSpawnConfig.custom_target_scores || [];
+    if (this.levelSpec) return configuredScores;
 
-    for (let x = minX; x <= maxX; x++) {
-      for (let y = minY; y <= maxY; y++) {
-        if (!this.state.gridColors.get(`${x},${y}`)?.color) {
-          return false;
-        }
+    const checkpointRule = this.collectibleSpawnConfig.collectible_spawn_rules.find(
+      (rule) => rule.clue_type === "checkpoint"
+    );
+    if (!checkpointRule) return configuredScores;
+
+    const targetScores: number[] = [];
+    let checkpointsPerPlayer = 0;
+
+    for (let stage = 1; stage < this.getMaxStage(); stage++) {
+      if (stage >= checkpointRule.first_stage) {
+        checkpointsPerPlayer += stage === checkpointRule.first_stage
+          ? checkpointRule.num_initial
+          : checkpointRule.num_subsequent;
       }
+
+      checkpointsPerPlayer = Math.min(
+        checkpointsPerPlayer,
+        this.MAX_CHECKPOINTS_PER_PLAYER
+      );
+
+      targetScores.push(
+        checkpointsPerPlayer *
+          this.CHECKPOINT_COMPLETION_SCORE *
+          this.playerColors.length
+      );
     }
 
-    return true;
+    return targetScores;
   }
 
   private advanceToStage(newStage: number) {
@@ -1708,7 +1717,11 @@ export class GameRoom extends Room<GameState> {
           } else {
             // Color-based collectibles: spawn numToSpawn per color
             for (const color of colors) {
-              for (let i = 0; i < numToSpawn; i++) {
+              const colorNumToSpawn = rule.clue_type === "checkpoint"
+                ? Math.min(numToSpawn, Math.max(0, this.MAX_CHECKPOINTS_PER_PLAYER - this.getCheckpointCount(color)))
+                : numToSpawn;
+
+              for (let i = 0; i < colorNumToSpawn; i++) {
                 const collectible = new Collectible();
                 collectible.id = `${color}-${rule.clue_type}-${this.state.collectibles.length}`;
                 collectible.color = color;
@@ -1802,12 +1815,9 @@ export class GameRoom extends Room<GameState> {
     // Clear all grid colors (set to neutral by removing them)
     this.state.gridColors.clear();
 
-    if (reason === "vote") {
-      this.resetMovementScores();
-    }
+    this.resetMovementScores();
 
     // A cleared board starts a fresh checkpoint sequence.
-    this.attemptedCheckpointIds.clear();
     for (const collectible of this.state.collectibles) {
       if (collectible.type === "checkpoint" && collectible.isActivated) {
         collectible.isActivated = false;

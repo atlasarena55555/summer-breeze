@@ -1,14 +1,14 @@
 {
   "seed": 40,
   "custom_target_scores": [
-    20, 50, 92, 148, 220, 310, 420
+    72, 144, 216, 216, 216, 216, 216
   ],
   "collectible_spawn_rules": [
     {
       "clue_type": "checkpoint",
       "first_stage": 1,
       "num_initial": 4,
-      "num_subsequent": 7
+      "num_subsequent": 4
     }
 ]
 }
