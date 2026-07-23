@@ -1,7 +1,7 @@
 import { Component, useEffect, useMemo, useRef, useState } from "react";
 import type { ErrorInfo, ReactNode } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrthographicCamera } from "@react-three/drei";
+import { OrthographicCamera, Text } from "@react-three/drei";
 import * as Client from "colyseus.js";
 import { toast } from "sonner";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
@@ -15,6 +15,7 @@ import { Compass } from "@/components/Compass";
 import { GalaxyModel } from "@/components/GalaxyModel";
 import { Polyomino } from "@/components/Polyomino";
 import { EquilibriumCube } from "@/components/EquilibriumCube";
+import { RegularPolygon } from "@/components/RegularPolygon";
 import { GoldAura } from "@/components/GoldAura";
 import { PulseRipple } from "@/components/game/PulseRipple";
 import { FloatingScore } from "@/components/FloatingScore";
@@ -83,6 +84,37 @@ interface Ping {
   y: number;
   timestamp: number;
   color: PlayerColor;
+}
+
+function CheckpointNumberLabel({ number }: { number: number }) {
+  return (
+    <group position={[0, 1.25, 0]} rotation={[-Math.PI / 2, 0, 0]} renderOrder={1000}>
+      <mesh renderOrder={999}>
+        <circleGeometry args={[0.28, 32]} />
+        <meshBasicMaterial
+          color="#000000"
+          transparent
+          opacity={0.7}
+          depthTest={false}
+          depthWrite={false}
+        />
+      </mesh>
+      <Text
+        position={[0, 0, 0.02]}
+        fontSize={0.38}
+        color="#ffffff"
+        anchorX="center"
+        anchorY="middle"
+        outlineWidth={0.02}
+        outlineColor="#000000"
+        material-depthTest={false}
+        material-depthWrite={false}
+        renderOrder={1001}
+      >
+        {number}
+      </Text>
+    </group>
+  );
 }
 
 const COLOR_MAP_LOWER: Record<PlayerColor, ClueColorLower> = {
@@ -2245,12 +2277,13 @@ export const GameScreen = ({
                   </group>
                 );
               } else if (collectible.type === "checkpoint") {
-                  console.log("collectible: " + collectible.num);
+                  const checkpointNumber = collectible.num + 1;
                   if (collectible.num == 0) { //shape for first
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
                           <Compass color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
                     )
@@ -2260,6 +2293,7 @@ export const GameScreen = ({
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
                           <LambdaSymbol color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
                     )
@@ -2269,6 +2303,7 @@ export const GameScreen = ({
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
                           <EquilateralTriangle color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
                     )
@@ -2278,16 +2313,17 @@ export const GameScreen = ({
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
                           <EquilibriumCube color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
                     )
                   }
-                  // repeat for each number
-                  else { // code for mystery number checkpoints above 3
+                  else {
                     return (
                     <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <EquilibriumCube color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <RegularPolygon sides={collectible.num + 1} color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
                     )
