@@ -9,14 +9,14 @@ import * as THREE from "three";
 import { Player } from "@/components/Player";
 import { ParticleFloor } from "@/components/ParticleFloor";
 import { CubeFrame } from "@/components/CubeFrame";
-import { Hand } from "@/components/Hand";
 import { EquilateralTriangle } from "@/components/EquilateralTriangle";
-import { Compass } from "@/components/Compass";
-import { GalaxyModel } from "@/components/GalaxyModel";
 import { Polyomino } from "@/components/Polyomino";
-import { EquilibriumCube } from "@/components/EquilibriumCube";
-import { RegularPolygon } from "@/components/RegularPolygon";
 import { GoldAura } from "@/components/GoldAura";
+import { Circle } from "@/components/checkpoints/Circle";
+import { Arrowhead } from "@/components/checkpoints/Arrowhead";
+import { Triangle } from "@/components/checkpoints/Triangle";
+import { Square } from "@/components/checkpoints/Square";
+import { GenerativeShape } from "@/components/checkpoints/GenerativeShape";
 import { PulseRipple } from "@/components/game/PulseRipple";
 import { FloatingScore } from "@/components/FloatingScore";
 import { ClickHandler } from "@/components/ClickHandler";
@@ -389,7 +389,7 @@ const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (s
     //IGNORE THIS LINE: <cylinderGeometry args={[0.04, 0.04, SPACING, 6]}>
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, maxCount]}>
-      <cylinderGeometry args={[0.1, 0.1, SPACING, 12]}>   
+      <cylinderGeometry args={[0.08, 0.08, SPACING, 12]}>   
         <instancedBufferAttribute attach="attributes-instanceColor" args={[colorArray, 3]} />
       </cylinderGeometry>
       <shaderMaterial
@@ -2236,38 +2236,6 @@ export const GameScreen = ({
                     </GoldAura>
                   </group>
                 );
-              } else if (collectible.type === "clone") {
-                const rotationY = Math.PI + (collectible.orientation * Math.PI) / 180;
-                const flipScale = collectible.isFlipped ? -1 : 1;
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[0, rotationY, 0]} scale={[flipScale, 1, 1]}>
-                        <Hand color={displayColor} scale={0.6} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
-              } else if (collectible.type === "vantage") {
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[Math.PI / 2, 0, 0]} scale={0.5}>
-                        <Compass color={displayColor} scale={1.0} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
-              } else if (collectible.type === "galaxy") {
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[Math.PI / 2, 0, 0]}>
-                        <GalaxyModel color={displayColor} scale={0.72} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
               } else if (collectible.type === "polyomino") {
                 return (
                   <group key={collectible.id} position={pos}>
@@ -2282,7 +2250,7 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <Compass color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <Circle color={displayColor} scale={1} connected={collectible.isActivated} />
                           <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
@@ -2292,7 +2260,7 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <LambdaSymbol color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <Arrowhead color={displayColor} scale={1.13} connected={collectible.isActivated} />
                           <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
@@ -2302,7 +2270,7 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <EquilateralTriangle color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <Triangle color={displayColor} scale={1} connected={collectible.isActivated} />
                           <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
@@ -2312,7 +2280,7 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <EquilibriumCube color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <Square color={displayColor} scale={1} connected={collectible.isActivated} />
                           <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
@@ -2322,7 +2290,7 @@ export const GameScreen = ({
                     return (
                     <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <RegularPolygon sides={collectible.num + 1} color={displayColor} scale={1.2} connected={collectible.isActivated} />
+                          <GenerativeShape sides={collectible.num + 1} color={displayColor} scale={1} connected={collectible.isActivated} />
                           <CheckpointNumberLabel number={checkpointNumber} />
                         </GoldAura>
                       </group>
