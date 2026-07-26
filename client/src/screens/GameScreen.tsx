@@ -1679,7 +1679,7 @@ export const GameScreen = ({
                     />
                   )}
                   <div
-                    className="relative whitespace-nowrap font-montreal text-5xl font-extrabold tracking-tight will-change-[transform,opacity] sm:text-6xl"
+                    className="relative whitespace-nowrap font-montreal text-3xl font-extrabold tracking-tight will-change-[transform,opacity] sm:text-4xl"
                     style={{
                       animation: `${mainScoreFloating.score > 0 ? "scoreGainPop" : "scoreLossPop"} 1.75s cubic-bezier(0.25, 0.9, 0.35, 1) forwards`,
                       color: mainScoreFloating.score > 0 ? "#f8fafc" : "#fca5a5",
