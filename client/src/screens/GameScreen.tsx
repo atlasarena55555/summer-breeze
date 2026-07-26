@@ -6,16 +6,9 @@ import * as Client from "colyseus.js";
 import { toast } from "sonner";
 import { Bloom, EffectComposer } from "@react-three/postprocessing";
 import * as THREE from "three";
-import { Player } from "@/components/Player";
 import { ParticleFloor } from "@/components/ParticleFloor";
-import { CubeFrame } from "@/components/CubeFrame";
-import { Hand } from "@/components/Hand";
 import { EquilateralTriangle } from "@/components/EquilateralTriangle";
-import { Compass } from "@/components/Compass";
-import { GalaxyModel } from "@/components/GalaxyModel";
 import { Polyomino } from "@/components/Polyomino";
-import { EquilibriumCube } from "@/components/EquilibriumCube";
-import { RegularPolygon } from "@/components/RegularPolygon";
 import { GoldAura } from "@/components/GoldAura";
 import { PulseRipple } from "@/components/game/PulseRipple";
 import { FloatingScore } from "@/components/FloatingScore";
@@ -31,7 +24,7 @@ import { NoiseFieldOverlay, type NoiseFieldHandle } from "@/components/game/Nois
 import { StageAnnouncement } from "@/components/game/StageAnnouncement";
 import { DevStageControls } from "@/components/game/DevStageControls";
 import { GameControls } from "@/components/game/GameControls";
-import { NebulaBackdrop } from "@/components/game/NebulaBackdrop";
+import { WaterCausticBackdrop } from "@/components/game/WaterCausticBackdrop";
 import {
   getFloorTint,
   getPlayerDisplayLabel,
@@ -40,6 +33,10 @@ import {
   PLAYER_HEX,
   PLAYER_HEX_LOWER,
 } from "@/constants/playerColors";
+import { Flower01 } from "@/components/froggy/Flower01";
+import { Flower02 } from "@/components/froggy/Flower02";
+import { GenerativeFlower } from "@/components/froggy/GenerativeFlower";
+import { FrogPlayer } from "@/components/FrogPlayer";
 
 // Types
 type PlayerColor = "RED" | "GREEN" | "BLUE";
@@ -389,7 +386,7 @@ const ConnectionLines = ({ nodeStates, gridWidth, gridHeight }: { nodeStates: (s
     //IGNORE THIS LINE: <cylinderGeometry args={[0.04, 0.04, SPACING, 6]}>
   return (
     <instancedMesh ref={meshRef} args={[undefined, undefined, maxCount]}>
-      <cylinderGeometry args={[0.1, 0.1, SPACING, 12]}>   
+      <cylinderGeometry args={[0.037, 0.037, SPACING, 12]}>   
         <instancedBufferAttribute attach="attributes-instanceColor" args={[colorArray, 3]} />
       </cylinderGeometry>
       <shaderMaterial
@@ -1267,7 +1264,7 @@ export const GameScreen = ({
 
   return (
     <div className="isolate w-full h-screen relative overflow-hidden bg-canvas">
-      {/* Cloud nebula backdrop is rendered inside the R3F Canvas (NebulaBackdrop). */}
+      {/* Water caustics are rendered inside the existing R3F Canvas. */}
       <div
         className="pointer-events-none absolute inset-0 z-0 bg-gradient-to-t from-canvas/25 via-transparent to-transparent"
         aria-hidden
@@ -1679,7 +1676,7 @@ export const GameScreen = ({
                     />
                   )}
                   <div
-                    className="relative whitespace-nowrap font-montreal text-5xl font-extrabold tracking-tight will-change-[transform,opacity] sm:text-6xl"
+                    className="relative whitespace-nowrap font-montreal text-3xl font-extrabold tracking-tight will-change-[transform,opacity] sm:text-4xl"
                     style={{
                       animation: `${mainScoreFloating.score > 0 ? "scoreGainPop" : "scoreLossPop"} 1.75s cubic-bezier(0.25, 0.9, 0.35, 1) forwards`,
                       color: mainScoreFloating.score > 0 ? "#f8fafc" : "#fca5a5",
@@ -2180,7 +2177,7 @@ export const GameScreen = ({
           });
         }}
       >
-        <NebulaBackdrop />
+        <WaterCausticBackdrop />
 
         <OrthographicCamera
           makeDefault
@@ -2204,6 +2201,7 @@ export const GameScreen = ({
 
             {/* Collectibles */}
             {/* EDIT COLLECTIBLE SHAPES HERE!!!!!! */}
+            {/*Uncomment checkpoint labels for number hints*/}
             {collectibles.map((collectible) => {
               const pos = getVisualPos(collectible.x, collectible.y, -2.0);
               const displayColor = getDisplayColor(collectible.color);
@@ -2216,54 +2214,12 @@ export const GameScreen = ({
                     </GoldAura>
                   </group>
                 );
-              } else if (collectible.type === "box") {
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[0, Math.PI / 8, 0]}>
-                        <CubeFrame color={displayColor} scale={0.75} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
               } else if (collectible.type === "equilibrium") {
                 return (
                   <group key={collectible.id} position={pos}>
                     <GoldAura isGold={collectible.isGold} color={displayColor}>
                       <group rotation={[Math.PI / 2, 0, 0]}>
                         <EquilateralTriangle color={displayColor} scale={1.0} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
-              } else if (collectible.type === "clone") {
-                const rotationY = Math.PI + (collectible.orientation * Math.PI) / 180;
-                const flipScale = collectible.isFlipped ? -1 : 1;
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[0, rotationY, 0]} scale={[flipScale, 1, 1]}>
-                        <Hand color={displayColor} scale={0.6} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
-              } else if (collectible.type === "vantage") {
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[Math.PI / 2, 0, 0]} scale={0.5}>
-                        <Compass color={displayColor} scale={1.0} connected={collectible.isActivated} />
-                      </group>
-                    </GoldAura>
-                  </group>
-                );
-              } else if (collectible.type === "galaxy") {
-                return (
-                  <group key={collectible.id} position={pos}>
-                    <GoldAura isGold={collectible.isGold} color={displayColor}>
-                      <group rotation={[Math.PI / 2, 0, 0]}>
-                        <GalaxyModel color={displayColor} scale={0.72} connected={collectible.isActivated} />
                       </group>
                     </GoldAura>
                   </group>
@@ -2282,8 +2238,8 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <Compass color={displayColor} scale={1.2} connected={collectible.isActivated} />
-                          <CheckpointNumberLabel number={checkpointNumber} />
+                          <Flower01 color={displayColor} scale={0.86} connected={collectible.isActivated} />
+                          {/* <CheckpointNumberLabel number={checkpointNumber} /> */}
                         </GoldAura>
                       </group>
                     )
@@ -2292,28 +2248,18 @@ export const GameScreen = ({
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <LambdaSymbol color={displayColor} scale={1.2} connected={collectible.isActivated} />
-                          <CheckpointNumberLabel number={checkpointNumber} />
+                          <Flower02 color={displayColor} scale={0.76} connected={collectible.isActivated} />
+                          {/* <CheckpointNumberLabel number={checkpointNumber} /> */}
                         </GoldAura>
                       </group>
                     )
                   }
-                  else if (collectible.num == 2) { //shape for third
+                  else if (collectible.num >= 2) { //shape for third and beyond
                     return (
                       <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <EquilateralTriangle color={displayColor} scale={1.2} connected={collectible.isActivated} />
-                          <CheckpointNumberLabel number={checkpointNumber} />
-                        </GoldAura>
-                      </group>
-                    )
-                  }
-                  else if (collectible.num == 3) { //shape for fourth
-                    return (
-                      <group key={collectible.id} position={pos}>
-                        <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <EquilibriumCube color={displayColor} scale={1.2} connected={collectible.isActivated} />
-                          <CheckpointNumberLabel number={checkpointNumber} />
+                          <GenerativeFlower sides={collectible.num + 1} color={displayColor} scale={0.66} connected={collectible.isActivated} />
+                          {/* <CheckpointNumberLabel number={checkpointNumber} /> */}
                         </GoldAura>
                       </group>
                     )
@@ -2322,8 +2268,8 @@ export const GameScreen = ({
                     return (
                     <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>
-                          <RegularPolygon sides={collectible.num + 1} color={displayColor} scale={1.2} connected={collectible.isActivated} />
-                          <CheckpointNumberLabel number={checkpointNumber} />
+                          <GenerativeFlower sides={collectible.num + 1} color={displayColor} scale={0.66} connected={collectible.isActivated} />
+                          {/* <CheckpointNumberLabel number={checkpointNumber} /> */}
                         </GoldAura>
                       </group>
                     )
@@ -2356,7 +2302,7 @@ export const GameScreen = ({
               const playerY = isMe && predictedPos ? predictedPos.y : player.y;
               const pos = getVisualPos(playerX, playerY, -1.5);
               return (
-                <Player
+                <FrogPlayer
                   key={player.sessionId || index}
                   color={COLOR_MAP_LOWER[player.color]}
                   position={pos}

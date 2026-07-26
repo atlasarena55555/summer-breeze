@@ -128,12 +128,23 @@ export function ParticleFloor({ gridWidth = 10, gridHeight = 8, spacing = 2.5, n
 
       void main() {
         vec2 center = vUv - 0.5;
+
+        // Distance from center
         float dist = length(center);
 
+        // Angle around the center
+        float angle = atan(center.y, center.x);
+
+        // Dent at the top (90°)
+        float dent = exp(-pow((angle - 0.7854) * 4.2, 2.0));
+
+        // Push the ring inward near the top
+        dist += dent * 0.8;
+
         // Two thin concentric circles
-        float r1 = 0.18;
-        float r2 = 0.24;
-        float thickness = 0.012;
+        float r1 = 0.25;
+        float r2 = 0.30;
+        float thickness = 0.023;
         float blur = 0.01;
 
         float ring1 = 1.0 - smoothstep(thickness, thickness + blur, abs(dist - r1));
