@@ -8,7 +8,7 @@
       "clue_type": "checkpoint",
       "first_stage": 1,
       "num_initial": 4,
-      "num_subsequent": 4
+      "num_subsequent": 5
     }
 ]
 }
