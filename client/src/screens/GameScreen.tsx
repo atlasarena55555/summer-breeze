@@ -656,6 +656,27 @@ export const GameScreen = ({
     return SCORE_BAR_GRADIENT[c];
   }, [isSoloMode, myColor, activePlayerIndex, players]);
 
+  const completedCheckpointPlayerCount = useMemo(() => {
+    const colors: PlayerColor[] = ["RED", "GREEN", "BLUE"];
+
+    return colors.reduce((count, color) => {
+      const checkpoints = collectibles.filter(
+        (collectible) =>
+          collectible.type === "checkpoint" && collectible.color === color
+      );
+
+      return checkpoints.length > 0 &&
+        checkpoints.every((checkpoint) => checkpoint.isActivated)
+        ? count + 1
+        : count;
+    }, 0);
+  }, [collectibles]);
+
+  const canRequestNextLevel =
+    completedCheckpointPlayerCount >= 2 &&
+    completedCheckpointPlayerCount < 3 &&
+    stage < 8;
+
   const localPlayerDisplayName = useMemo(() => {
     if (!room) return null;
     const me = Array.from(players.values()).find((p) => p.sessionId === room.sessionId);
@@ -1952,7 +1973,30 @@ export const GameScreen = ({
                 </div>
               </div>
             )}
-            <div className="flex flex-wrap items-stretch gap-2">
+            {canRequestNextLevel && (
+              <button
+                type="button"
+                onClick={() => {
+                  room?.send("nextLevel", {});
+                }}
+                aria-label="Move to the next level"
+                data-ui="game-action-next-level"
+                className="relative flex min-h-14 w-[13rem] max-w-[calc(100vw-2rem)] flex-col items-center justify-center self-center rounded-none border border-solid bg-canvas/50 px-4 py-2.5 text-center text-white backdrop-blur-[6px] transition-colors duration-150 hover:bg-canvas/65 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
+                style={{
+                  borderColor: POLAR_HUD.border,
+                  boxShadow: "inset 0 0 0 1px rgba(255,255,255,0.1), 0 0 20px rgba(125,211,252,0.18)",
+                }}
+              >
+                <HudCornerLs />
+                <p className="relative z-[1] font-montreal text-[14px] font-bold uppercase leading-tight tracking-[0.14em] text-white">
+                  Next Level
+                </p>
+                <p className="relative z-[1] mt-1 font-montreal text-[10px] uppercase leading-tight tracking-[0.12em] text-slate-400">
+                  {completedCheckpointPlayerCount}/3 ready
+                </p>
+              </button>
+            )}
+            <div className="flex w-[13rem] max-w-[calc(100vw-2rem)] items-stretch gap-2 self-center">
           <button
             type="button"
             onClick={() => {
@@ -1974,7 +2018,7 @@ export const GameScreen = ({
                     : "Vote to clear the board"
             }
             data-ui="game-action-clear"
-            className={`relative flex min-h-9 min-w-[6.25rem] flex-col items-center justify-center rounded-none border border-solid bg-canvas/40 px-2.5 py-1.5 text-center text-white backdrop-blur-[4px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:pointer-events-none ${
+            className={`relative flex min-h-9 flex-1 flex-col items-center justify-center rounded-none border border-solid bg-canvas/40 px-2.5 py-1.5 text-center text-white backdrop-blur-[4px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:pointer-events-none ${
               clearBoardVoteActive ? "" : "hover:bg-canvas/55"
             }`}
             style={
@@ -2090,7 +2134,7 @@ export const GameScreen = ({
                     : "Vote to abandon the match"
             }
             data-ui="game-action-abandon"
-            className={`relative flex min-h-9 min-w-[6.25rem] flex-col items-center justify-center rounded-none border border-solid bg-canvas/40 px-2.5 py-1.5 text-center text-white backdrop-blur-[4px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:pointer-events-none ${
+            className={`relative flex min-h-9 flex-1 flex-col items-center justify-center rounded-none border border-solid bg-canvas/40 px-2.5 py-1.5 text-center text-white backdrop-blur-[4px] transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-white/35 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:cursor-not-allowed disabled:pointer-events-none ${
               abandonVoteActive ? "" : "hover:bg-canvas/55"
             }`}
             style={
