@@ -82,6 +82,8 @@ export class GameRoom extends Room<GameState> {
   private levelSpec: LevelSpec | null = null;
   private readonly MAX_CHECKPOINTS_PER_PLAYER = 12;
   private readonly CHECKPOINT_COMPLETION_SCORE = 6;
+  private readonly REQUIRED_COMPLETED_CHECKPOINT_PLAYERS = 2;
+  private readonly MAX_CHECKPOINT_LAYOUT_ATTEMPTS = 50;
   private lobbyTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly LOBBY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
   private abandonTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -1066,10 +1068,13 @@ export class GameRoom extends Room<GameState> {
     // room state (this.state.highScore) for the duration of the session.
   }
 
-  private generateInitialCollectibles() {
+  private generateInitialCollectibles(layoutAttempt = 1) {
     // Use level spec if available, otherwise use random spawn rules
     if (this.levelSpec && this.levelSpec.stages.length > 0) {
       this.spawnCluesFromLevelSpec(1);
+      if (!this.haveEnoughConnectableCheckpointPlayers()) {
+        throw new Error(`Initial level spec checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players`);
+      }
       console.log(`Generated ${this.state.collectibles.length} initial collectibles from level spec`);
       return;
     }
@@ -1193,6 +1198,17 @@ export class GameRoom extends Room<GameState> {
           }
         }
       }
+    }
+
+    if (!this.haveEnoughConnectableCheckpointPlayers()) {
+      if (layoutAttempt < this.MAX_CHECKPOINT_LAYOUT_ATTEMPTS) {
+        console.warn(`Initial checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
+        this.state.collectibles.splice(0, this.state.collectibles.length);
+        this.generateInitialCollectibles(layoutAttempt + 1);
+        return;
+      }
+
+      throw new Error(`Initial checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
     }
 
     console.log(`Generated ${this.state.collectibles.length} initial collectibles`);
@@ -1538,27 +1554,137 @@ export class GameRoom extends Room<GameState> {
   private checkStageAdvancement() {
     if (this.isAdvancingStage) return;
     if (this.state.stage >= this.getMaxStage()) return;
-    if (!this.areAllCheckpointsComplete()) return;
+    if (!this.areEnoughCheckpointPlayersComplete()) return;
 
     const nextStage = this.state.stage + 1;
-    console.log(`All checkpoints completed; advancing from stage ${this.state.stage} to stage ${nextStage}`);
+    console.log(`${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} checkpoint sets completed; advancing from stage ${this.state.stage} to stage ${nextStage}`);
     this.advanceToStage(nextStage);
   }
 
-  private areAllCheckpointsComplete(): boolean {
+  private areEnoughCheckpointPlayersComplete(): boolean {
+    let completedPlayers = 0;
+
     for (const color of this.playerColors) {
       const checkpoints = Array.from(this.state.collectibles).filter(
         (collectible) =>
           collectible.type === "checkpoint" && collectible.color === color
       );
 
-      if (checkpoints.length === 0) return false;
-      if (checkpoints.some((checkpoint) => !checkpoint.isActivated)) {
+      if (
+        checkpoints.length > 0 &&
+        checkpoints.every((checkpoint) => checkpoint.isActivated)
+      ) {
+        completedPlayers++;
+      }
+    }
+
+    return completedPlayers >= this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS;
+  }
+
+  private haveEnoughConnectableCheckpointPlayers(): boolean {
+    let connectablePlayers = 0;
+
+    for (const color of this.playerColors) {
+      if (this.arePlayerCheckpointsConnectable(color)) {
+        connectablePlayers++;
+      }
+    }
+
+    return connectablePlayers >= this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS;
+  }
+
+  private arePlayerCheckpointsConnectable(color: PlayerColor): boolean {
+    const checkpoints = Array.from(this.state.collectibles)
+      .filter(
+        (collectible) =>
+          collectible.type === "checkpoint" && collectible.color === color
+      )
+      .sort((a, b) => a.num - b.num);
+
+    if (checkpoints.length === 0) return false;
+
+    for (let i = 1; i < checkpoints.length; i++) {
+      if (
+        checkpoints[i].num !== checkpoints[i - 1].num + 1 ||
+        !this.hasCheckpointPath(color, checkpoints[i - 1], checkpoints[i])
+      ) {
         return false;
       }
     }
 
     return true;
+  }
+
+  private hasCheckpointPath(
+    color: PlayerColor,
+    start: Collectible,
+    target: Collectible
+  ): boolean {
+    const center = Math.floor(this.MAX_GRID_SIZE / 2);
+    const halfWidth = Math.floor(this.state.gridWidth / 2);
+    const halfHeight = Math.floor(this.state.gridHeight / 2);
+    const minX = center - halfWidth;
+    const maxX = center + halfWidth - 1;
+    const minY = center - halfHeight;
+    const maxY = center + halfHeight - 1;
+    const targetKey = `${target.x},${target.y}`;
+    const blocked = this.getCheckpointPathBlockedCells(color, targetKey);
+    const startKey = `${start.x},${start.y}`;
+    const queue: Array<{ x: number; y: number }> = [{ x: start.x, y: start.y }];
+    const visited = new Set<string>([startKey]);
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      const currentKey = `${current.x},${current.y}`;
+      if (currentKey === targetKey) return true;
+
+      const neighbors = [
+        { x: current.x - 1, y: current.y },
+        { x: current.x + 1, y: current.y },
+        { x: current.x, y: current.y - 1 },
+        { x: current.x, y: current.y + 1 },
+      ];
+
+      for (const neighbor of neighbors) {
+        if (
+          neighbor.x < minX ||
+          neighbor.x > maxX ||
+          neighbor.y < minY ||
+          neighbor.y > maxY
+        ) {
+          continue;
+        }
+
+        const neighborKey = `${neighbor.x},${neighbor.y}`;
+        if (visited.has(neighborKey) || blocked.has(neighborKey)) continue;
+
+        visited.add(neighborKey);
+        queue.push(neighbor);
+      }
+    }
+
+    return false;
+  }
+
+  private getCheckpointPathBlockedCells(
+    color: PlayerColor,
+    targetKey: string
+  ): Set<string> {
+    const blocked = new Set<string>();
+
+    for (const collectible of this.state.collectibles) {
+      if (
+        collectible.type === "checkpoint" &&
+        collectible.color !== color
+      ) {
+        const key = `${collectible.x},${collectible.y}`;
+        if (key !== targetKey) {
+          blocked.add(key);
+        }
+      }
+    }
+
+    return blocked;
   }
 
   private getMaxStage(): number {
@@ -1603,16 +1729,14 @@ export class GameRoom extends Room<GameState> {
     return targetScores;
   }
 
-  private advanceToStage(newStage: number) {
+  private advanceToStage(newStage: number, layoutAttempt = 1) {
     this.isAdvancingStage = true;
-
-    // Log stage advance for replay
-    this.logEvent({ e: "stage", stage: newStage });
 
     try {
       const oldGridWidth = this.state.gridWidth;
       const oldGridHeight = this.state.gridHeight;
       const previousStage = this.state.stage;
+      const previousCollectibleCount = this.state.collectibles.length;
       this.state.stage = newStage;
 
       // Simply expand the visible area by 2 per stage
@@ -1633,7 +1757,11 @@ export class GameRoom extends Room<GameState> {
           const currentStage = previousStage + s + 1;
           this.spawnCluesFromLevelSpec(currentStage);
         }
+        if (!this.haveEnoughConnectableCheckpointPlayers()) {
+          throw new Error(`Stage ${newStage} level spec checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players`);
+        }
         this.executeClearBoard("stage");
+        this.logEvent({ e: "stage", stage: newStage });
         console.log(`Stage ${newStage}: Visible area expanded from ${oldGridWidth}x${oldGridHeight} to ${this.state.gridWidth}x${this.state.gridHeight} (using level spec)`);
         return;
       }
@@ -1775,6 +1903,31 @@ export class GameRoom extends Room<GameState> {
         }
       }
 
+      if (!this.haveEnoughConnectableCheckpointPlayers()) {
+        if (layoutAttempt < this.MAX_CHECKPOINT_LAYOUT_ATTEMPTS) {
+          console.warn(`Stage ${newStage} checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
+          this.state.collectibles.splice(
+            previousCollectibleCount,
+            this.state.collectibles.length - previousCollectibleCount
+          );
+          this.state.stage = previousStage;
+          this.state.gridWidth = oldGridWidth;
+          this.state.gridHeight = oldGridHeight;
+          this.isAdvancingStage = false;
+          this.advanceToStage(newStage, layoutAttempt + 1);
+          return;
+        }
+
+        this.state.collectibles.splice(
+          previousCollectibleCount,
+          this.state.collectibles.length - previousCollectibleCount
+        );
+        this.state.stage = previousStage;
+        this.state.gridWidth = oldGridWidth;
+        this.state.gridHeight = oldGridHeight;
+        throw new Error(`Stage ${newStage} checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
+      }
+
       // Spawn enemies for each stage advanced
       for (let s = 0; s < stagesAdvanced; s++) {
         const currentStage = previousStage + s + 1;
@@ -1782,6 +1935,7 @@ export class GameRoom extends Room<GameState> {
       }
 
       this.executeClearBoard("stage");
+      this.logEvent({ e: "stage", stage: newStage });
       console.log(`Stage ${newStage}: Visible area expanded from ${oldGridWidth}x${oldGridHeight} to ${this.state.gridWidth}x${this.state.gridHeight}, added ${totalCollectiblesAdded} new collectibles`);
     } finally {
       this.isAdvancingStage = false;
