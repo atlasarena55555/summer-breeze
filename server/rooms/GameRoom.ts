@@ -82,7 +82,8 @@ export class GameRoom extends Room<GameState> {
   private levelSpec: LevelSpec | null = null;
   private readonly MAX_CHECKPOINTS_PER_PLAYER = 12;
   private readonly CHECKPOINT_COMPLETION_SCORE = 6;
-  private readonly REQUIRED_COMPLETED_CHECKPOINT_PLAYERS = 2;
+  private readonly OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS = 2;
+  private readonly AUTO_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS = 3;
   private readonly MAX_CHECKPOINT_LAYOUT_ATTEMPTS = 50;
   private lobbyTimeout: ReturnType<typeof setTimeout> | null = null;
   private readonly LOBBY_TIMEOUT = 10 * 60 * 1000; // 10 minutes in ms
@@ -359,6 +360,17 @@ export class GameRoom extends Room<GameState> {
         console.log(`[Dev Mode] Manual stage up from ${this.state.stage} to ${nextStage}. Score: ${this.state.totalScore}`);
         this.advanceToStage(nextStage);
       }
+    });
+
+    this.onMessage("nextLevel", (client) => {
+      const player = this.state.players.get(client.sessionId);
+      if (!player || !this.state.gameStarted || this.state.isGameOver) return;
+      if (this.isAdvancingStage || this.state.stage >= this.getMaxStage()) return;
+      if (!this.areOptionalCheckpointPlayersComplete()) return;
+
+      const nextStage = this.state.stage + 1;
+      console.log(`${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} checkpoint sets completed; optional advance from stage ${this.state.stage} to stage ${nextStage} requested by ${player.color}`);
+      this.advanceToStage(nextStage);
     });
 
     // Handle dev mode node painting
@@ -1073,7 +1085,7 @@ export class GameRoom extends Room<GameState> {
     if (this.levelSpec && this.levelSpec.stages.length > 0) {
       this.spawnCluesFromLevelSpec(1);
       if (!this.haveEnoughConnectableCheckpointPlayers()) {
-        throw new Error(`Initial level spec checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players`);
+        throw new Error(`Initial level spec checkpoint layout is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players`);
       }
       console.log(`Generated ${this.state.collectibles.length} initial collectibles from level spec`);
       return;
@@ -1202,13 +1214,13 @@ export class GameRoom extends Room<GameState> {
 
     if (!this.haveEnoughConnectableCheckpointPlayers()) {
       if (layoutAttempt < this.MAX_CHECKPOINT_LAYOUT_ATTEMPTS) {
-        console.warn(`Initial checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
+        console.warn(`Initial checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
         this.state.collectibles.splice(0, this.state.collectibles.length);
         this.generateInitialCollectibles(layoutAttempt + 1);
         return;
       }
 
-      throw new Error(`Initial checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
+      throw new Error(`Initial checkpoint layout is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
     }
 
     console.log(`Generated ${this.state.collectibles.length} initial collectibles`);
@@ -1554,14 +1566,22 @@ export class GameRoom extends Room<GameState> {
   private checkStageAdvancement() {
     if (this.isAdvancingStage) return;
     if (this.state.stage >= this.getMaxStage()) return;
-    if (!this.areEnoughCheckpointPlayersComplete()) return;
+    if (!this.areAllCheckpointPlayersComplete()) return;
 
     const nextStage = this.state.stage + 1;
-    console.log(`${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} checkpoint sets completed; advancing from stage ${this.state.stage} to stage ${nextStage}`);
+    console.log(`All checkpoint sets completed; advancing from stage ${this.state.stage} to stage ${nextStage}`);
     this.advanceToStage(nextStage);
   }
 
-  private areEnoughCheckpointPlayersComplete(): boolean {
+  private areAllCheckpointPlayersComplete(): boolean {
+    return this.countCompletedCheckpointPlayers() >= this.AUTO_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS;
+  }
+
+  private areOptionalCheckpointPlayersComplete(): boolean {
+    return this.countCompletedCheckpointPlayers() >= this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS;
+  }
+
+  private countCompletedCheckpointPlayers(): number {
     let completedPlayers = 0;
 
     for (const color of this.playerColors) {
@@ -1578,7 +1598,7 @@ export class GameRoom extends Room<GameState> {
       }
     }
 
-    return completedPlayers >= this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS;
+    return completedPlayers;
   }
 
   private haveEnoughConnectableCheckpointPlayers(): boolean {
@@ -1590,7 +1610,7 @@ export class GameRoom extends Room<GameState> {
       }
     }
 
-    return connectablePlayers >= this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS;
+    return connectablePlayers >= this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS;
   }
 
   private arePlayerCheckpointsConnectable(color: PlayerColor): boolean {
@@ -1758,7 +1778,7 @@ export class GameRoom extends Room<GameState> {
           this.spawnCluesFromLevelSpec(currentStage);
         }
         if (!this.haveEnoughConnectableCheckpointPlayers()) {
-          throw new Error(`Stage ${newStage} level spec checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players`);
+          throw new Error(`Stage ${newStage} level spec checkpoint layout is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players`);
         }
         this.executeClearBoard("stage");
         this.logEvent({ e: "stage", stage: newStage });
@@ -1905,7 +1925,7 @@ export class GameRoom extends Room<GameState> {
 
       if (!this.haveEnoughConnectableCheckpointPlayers()) {
         if (layoutAttempt < this.MAX_CHECKPOINT_LAYOUT_ATTEMPTS) {
-          console.warn(`Stage ${newStage} checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
+          console.warn(`Stage ${newStage} checkpoint layout attempt ${layoutAttempt} is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players; retrying`);
           this.state.collectibles.splice(
             previousCollectibleCount,
             this.state.collectibles.length - previousCollectibleCount
@@ -1925,7 +1945,7 @@ export class GameRoom extends Room<GameState> {
         this.state.stage = previousStage;
         this.state.gridWidth = oldGridWidth;
         this.state.gridHeight = oldGridHeight;
-        throw new Error(`Stage ${newStage} checkpoint layout is not connectable for ${this.REQUIRED_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
+        throw new Error(`Stage ${newStage} checkpoint layout is not connectable for ${this.OPTIONAL_ADVANCE_COMPLETED_CHECKPOINT_PLAYERS} players after ${layoutAttempt} attempts`);
       }
 
       // Spawn enemies for each stage advanced
