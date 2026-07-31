@@ -2287,6 +2287,7 @@ export const GameScreen = ({
                     )
                   }
                   else {
+                    console.log("Generative shape time");
                     return (
                     <group key={collectible.id} position={pos}>
                         <GoldAura isGold={collectible.isGold} color={collectible.color}>

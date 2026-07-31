@@ -5,18 +5,18 @@ export function GenerativeShape({
   color = "#8e44ad",
   scale = 1,
   connected = false,
-  checkpoint_num,
+  sides,
   ...props
 }: {
   color?: string;
   scale?: number;
   connected?: boolean;
+  sides?: number;
 } & any) {
   const geometry = useMemo(() => {
     // Draw shape with sides based on checkpoint num
     const shapeDraw = new THREE.Shape();
-    const radius = 1;
-    const sides = checkpoint_num;
+    const radius = 0.62;
 
     // find vertices for sides
     for (let i = 0; i < sides; i++) {
@@ -33,16 +33,18 @@ export function GenerativeShape({
     shapeDraw.closePath();
 
     // Add to geometry
-    const shapeGeo = new THREE.ShapeGeometry(shapeDraw);
+    const shapeGeo = new THREE.ExtrudeGeometry(shapeDraw);
+    shapeGeo.rotateX(1.56);
     return shapeGeo;
 
-  }, []);
+  }, [sides]);
 
   return (
     <group {...props} scale={scale}>
       {/* Main mesh */}
       <mesh geometry={geometry}>
         <meshStandardMaterial
+          side={2}
           color={color}
           roughness={1}
           metalness={0.6}
